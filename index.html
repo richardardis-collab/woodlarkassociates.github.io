@@ -14,7 +14,6 @@
     font-family: Helvetica, Arial, sans-serif;
   }
 
-  /* Background video */
   #bg-video {
     position: fixed;
     inset: 0;
@@ -26,7 +25,6 @@
     filter: brightness(95%) contrast(115%) saturate(105%);
   }
 
-  /* Subtle atmospheric tint */
   .overlay {
     position: fixed;
     inset: 0;
@@ -35,7 +33,6 @@
     pointer-events: none;
   }
 
-  /* Centre content */
   .content {
     position: relative;
     z-index: 3;
@@ -45,41 +42,40 @@
     padding: 24px;
   }
 
-  /* Slow dissolve logo */
   .logo {
     max-width: 420px;
     width: min(70vw, 420px);
     height: auto;
     filter: drop-shadow(0 12px 30px rgba(0,0,0,0.55));
-
     opacity: 0;
     transform: translateY(6px);
     animation: fadeInLogo 3s ease 0.5s forwards;
   }
 
   @keyframes fadeInLogo {
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+    to { opacity: 1; transform: translateY(0); }
   }
 
-  /* Accessibility */
   @media (prefers-reduced-motion: reduce) {
     #bg-video { display: none; }
     .overlay { background: #000; }
-    .logo {
-      animation: none;
-      opacity: 1;
-      transform: none;
-    }
+    .logo { animation: none; opacity: 1; transform: none; }
   }
 </style>
 </head>
 
 <body>
 
-<video id="bg-video" muted playsinline preload="auto"></video>
+<!-- IMPORTANT: autoplay + muted + playsinline must be on the tag for Safari -->
+<video
+  id="bg-video"
+  autoplay
+  muted
+  loop
+  playsinline
+  preload="auto"
+></video>
+
 <div class="overlay"></div>
 
 <main class="content">
@@ -87,30 +83,37 @@
 </main>
 
 <script>
-  const videoElement = document.getElementById("bg-video");
-  const key = "woodlarkVideo";
+  (function () {
+    const video = document.getElementById("bg-video");
+    const videos = ["background1.mp4", "background2.mp4"];
+    let chosen = videos[0];
 
-  // Decide which video to play
-  const lastVideo = localStorage.getItem(key);
-  const nextVideo = (lastVideo === "background1.mp4")
-    ? "background2.mp4"
-    : "background1.mp4";
+    // Try to alternate using localStorage, fall back to random if blocked
+    try {
+      const key = "woodlarkVideo";
+      const last = localStorage.getItem(key);
+      chosen = (last === videos[0]) ? videos[1] : videos[0];
+      localStorage.setItem(key, chosen);
+    } catch (e) {
+      chosen = videos[Math.floor(Math.random() * videos.length)];
+    }
 
-  localStorage.setItem(key, nextVideo);
+    // Force source swap in a Safari-friendly way
+    video.pause();
+    video.removeAttribute("src");     // reset
+    video.load();
 
-  // Set video source directly (Safari-safe)
-  videoElement.src = nextVideo;
+    video.src = chosen;
+    video.load();
 
-  // Force required autoplay attributes
-  videoElement.muted = true;
-  videoElement.playsInline = true;
-  videoElement.autoplay = true;
-  videoElement.loop = true;
+    // Try to play as soon as there's enough data
+    const attemptPlay = () => video.play().catch(() => {});
+    video.addEventListener("loadeddata", attemptPlay, { once: true });
+    video.addEventListener("canplay", attemptPlay, { once: true });
 
-  // Safari-safe autoplay trigger
-  videoElement.addEventListener("canplay", () => {
-    videoElement.play().catch(() => {});
-  });
+    // And attempt immediately too
+    attemptPlay();
+  })();
 </script>
 
 </body>
