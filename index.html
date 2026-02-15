@@ -9,15 +9,11 @@
     html, body {
       height: 100%;
       margin: 0;
-    }
-
-    body {
       background: #000;
       overflow: hidden;
       font-family: Helvetica, Arial, sans-serif;
     }
 
-    /* Fullscreen background video */
     #bg-video {
       position: fixed;
       inset: 0;
@@ -26,20 +22,16 @@
       object-fit: cover;
       transform: scale(1.05);
       z-index: 1;
-
-      /* Make particles clearer without going bright */
-      filter: brightness(95%) contrast(115%) saturate(105%);
+      filter: brightness(95%) contrast(115%);
     }
 
-    /* Subtle tint overlay for depth */
     .overlay {
       position: fixed;
       inset: 0;
+      background: rgba(5,10,20,0.25);
       z-index: 2;
-      background: rgba(5, 10, 20, 0.25);
     }
 
-    /* Centre logo */
     .content {
       position: relative;
       z-index: 3;
@@ -54,12 +46,9 @@
       max-width: 420px;
       width: min(70vw, 420px);
       height: auto;
-
-      /* Optional: slight lift off the background */
       filter: drop-shadow(0 12px 30px rgba(0,0,0,0.55));
     }
 
-    /* If the user prefers reduced motion, hide video */
     @media (prefers-reduced-motion: reduce) {
       #bg-video { display: none; }
       .overlay { background: #000; }
@@ -68,14 +57,40 @@
 </head>
 
 <body>
-  <video id="bg-video" autoplay muted loop playsinline preload="auto">
-    <source src="background.mp4" type="video/mp4" />
-  </video>
 
+  <video id="bg-video" autoplay muted loop playsinline preload="auto"></video>
   <div class="overlay"></div>
 
   <main class="content">
     <img class="logo" src="woodlark.png" alt="Woodlark Associates" />
   </main>
+
+  <script>
+    const videoElement = document.getElementById("bg-video");
+
+    // Determine which video was last shown
+    let lastVideo = localStorage.getItem("woodlarkVideo");
+
+    let nextVideo;
+
+    if (lastVideo === "background1.mp4") {
+      nextVideo = "background2.mp4";
+    } else {
+      nextVideo = "background1.mp4";
+    }
+
+    // Save for next visit
+    localStorage.setItem("woodlarkVideo", nextVideo);
+
+    // Apply video
+    const source = document.createElement("source");
+    source.src = nextVideo;
+    source.type = "video/mp4";
+
+    videoElement.appendChild(source);
+    videoElement.load();
+    videoElement.play().catch(() => {});
+  </script>
+
 </body>
 </html>
