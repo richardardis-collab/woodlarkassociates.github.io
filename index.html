@@ -79,7 +79,7 @@
 
 <body>
 
-<video id="bg-video" autoplay muted loop playsinline preload="auto"></video>
+<video id="bg-video" muted playsinline preload="auto"></video>
 <div class="overlay"></div>
 
 <main class="content">
@@ -87,24 +87,30 @@
 </main>
 
 <script>
-  // Alternate between background1.mp4 and background2.mp4
   const videoElement = document.getElementById("bg-video");
   const key = "woodlarkVideo";
-  const lastVideo = localStorage.getItem(key);
 
+  // Decide which video to play
+  const lastVideo = localStorage.getItem(key);
   const nextVideo = (lastVideo === "background1.mp4")
     ? "background2.mp4"
     : "background1.mp4";
 
   localStorage.setItem(key, nextVideo);
 
-  const source = document.createElement("source");
-  source.src = nextVideo;
-  source.type = "video/mp4";
+  // Set video source directly (Safari-safe)
+  videoElement.src = nextVideo;
 
-  videoElement.appendChild(source);
-  videoElement.load();
-  videoElement.play().catch(() => {});
+  // Force required autoplay attributes
+  videoElement.muted = true;
+  videoElement.playsInline = true;
+  videoElement.autoplay = true;
+  videoElement.loop = true;
+
+  // Safari-safe autoplay trigger
+  videoElement.addEventListener("canplay", () => {
+    videoElement.play().catch(() => {});
+  });
 </script>
 
 </body>
