@@ -6,14 +6,21 @@
   <title>Woodlark Associates</title>
 
   <style>
+    :root{
+      --bg: #000;
+      --tint: rgba(5,10,20,0.25);
+      --logo-max: 420px;
+    }
+
     html, body {
       height: 100%;
       margin: 0;
-      background: #000;
+      background: var(--bg);
       overflow: hidden;
       font-family: Helvetica, Arial, sans-serif;
     }
 
+    /* Fullscreen background video */
     #bg-video {
       position: fixed;
       inset: 0;
@@ -22,75 +29,164 @@
       object-fit: cover;
       transform: scale(1.05);
       z-index: 1;
-      filter: brightness(95%) contrast(115%);
+      filter: brightness(95%) contrast(115%) saturate(105%);
     }
 
+    /* Subtle tint overlay */
     .overlay {
       position: fixed;
       inset: 0;
-      background: rgba(5,10,20,0.25);
       z-index: 2;
+      background: var(--tint);
+      pointer-events: none;
     }
 
+    /* Centre content */
     .content {
       position: relative;
       z-index: 3;
       height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: grid;
+      place-items: center;
       padding: 24px;
     }
 
-    .logo {
-      max-width: 420px;
-      width: min(70vw, 420px);
-      height: auto;
-      filter: drop-shadow(0 12px 30px rgba(0,0,0,0.55));
+    /* Parallax wrapper */
+    .parallax {
+      will-change: transform;
+      transform: translate3d(0,0,0);
+      transition: transform 120ms ease-out;
     }
 
+    .logo {
+      display: block;
+      max-width: var(--logo-max);
+      width: min(70vw, var(--logo-max));
+      height: auto;
+      filter: drop-shadow(0 12px 30px rgba(0,0,0,0.55));
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    /* Respect reduced motion */
     @media (prefers-reduced-motion: reduce) {
       #bg-video { display: none; }
       .overlay { background: #000; }
+      .parallax { transition: none; }
     }
   </style>
 </head>
 
 <body>
-
   <video id="bg-video" autoplay muted loop playsinline preload="auto"></video>
   <div class="overlay"></div>
 
   <main class="content">
-    <img class="logo" src="woodlark.png" alt="Woodlark Associates" />
+    <div class="parallax" id="parallax">
+      <img class="logo" src="woodlark.png" alt="Woodlark Associates" />
+    </div>
   </main>
 
   <script>
-    const videoElement = document.getElementById("bg-video");
+    // -------- Video alternation (background1.mp4 <-> background2.mp4) --------
+    (function initVideo(){
+      const videoEl = document.getElementById("bg-video");
+      const key = "woodlarkVideo";
+      const last = localStorage.getItem(key);
 
-    // Determine which video was last shown
-    let lastVideo = localStorage.getItem("woodlarkVideo");
+      const next = (last === "background1.mp4") ? "background2.mp4" : "background1.mp4";
+      localStorage.setItem(key, next);
 
-    let nextVideo;
+      const source = document.createElement("source");
+      source.src = next;
+      source.type = "video/mp4";
+      videoEl.appendChild(source);
 
-    if (lastVideo === "background1.mp4") {
-      nextVideo = "background2.mp4";
-    } else {
-      nextVideo = "background1.mp4";
-    }
+      videoEl.load();
+      videoEl.play().catch(() => {});
+    })();
 
-    // Save for next visit
-    localStorage.setItem("woodlarkVideo", nextVideo);
+    // -------- Interactive parallax (mouse + touch + device tilt) --------
+    (function initParallax(){
+      const prefersReduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (prefersReduced) return;
 
-    // Apply video
-    const source = document.createElement("source");
-    source.src = nextVideo;
-    source.type = "video/mp4";
+      const el = document.getElementById("parallax");
 
-    videoElement.appendChild(source);
-    videoElement.load();
-    videoElement.play().catch(() => {});
+      // Tune these for taste
+      const MAX_TRANSLATE_PX = 12;   // how far the logo moves
+      const MAX_ROTATE_DEG   = 1.2;  // subtle rotation
+      const SMOOTHING        = 0.08; // 0.05 slower, 0.12 snappier
+
+      let targetX = 0, targetY = 0, targetR = 0;
+      let currentX = 0, currentY = 0, currentR = 0;
+      let rafId = null;
+
+      function clamp(n, min, max){ return Math.max(min, Math.min(max, n)); }
+
+      function animate(){
+        currentX += (targetX - currentX) * SMOOTHING;
+        currentY += (targetY - currentY) * SMOOTHING;
+        currentR += (targetR - currentR) * SMOOTHING;
+
+        el.style.transform = `translate3d(${currentX}px, ${currentY}px, 0) rotate(${currentR}deg)`;
+
+        // Stop animating when close enough
+        const done =
+          Math.abs(targetX - currentX) < 0.01 &&
+          Math.abs(targetY - currentY) < 0.01 &&
+          Math.abs(targetR - currentR) < 0.01;
+
+        rafId = done ? null : requestAnimationFrame(animate);
+      }
+
+      function setTargets(nx, ny){
+        // nx, ny in range [-1..1]
+        targetX = nx * MAX_TRANSLATE_PX;
+        targetY = ny * MAX_TRANSLATE_PX;
+        targetR = nx * MAX_ROTATE_DEG;
+
+        if (!rafId) rafId = requestAnimationFrame(animate);
+      }
+
+      // Mouse / trackpad
+      window.addEventListener("mousemove", (e) => {
+        const nx = (e.clientX / window.innerWidth) * 2 - 1;
+        const ny = (e.clientY / window.innerHeight) * 2 - 1;
+        setTargets(clamp(nx, -1, 1), clamp(ny, -1, 1));
+      }, { passive: true });
+
+      // Touch (drag anywhere)
+      window.addEventListener("touchmove", (e) => {
+        if (!e.touches || !e.touches.length) return;
+        const t = e.touches[0];
+        const nx = (t.clientX / window.innerWidth) * 2 - 1;
+        const ny = (t.clientY / window.innerHeight) * 2 - 1;
+        setTargets(clamp(nx, -1, 1), clamp(ny, -1, 1));
+      }, { passive: true });
+
+      // Ease back to centre when leaving / ending touch
+      function reset(){
+        targetX = 0; targetY = 0; targetR = 0;
+        if (!rafId) rafId = requestAnimationFrame(animate);
+      }
+      window.addEventListener("mouseleave", reset, { passive: true });
+      window.addEventListener("touchend", reset, { passive: true });
+
+      // Optional: device tilt (mobile). iOS may require user gesture for permission; we keep it graceful.
+      window.addEventListener("deviceorientation", (e) => {
+        // gamma: left-right, beta: front-back
+        if (e.gamma == null || e.beta == null) return;
+        const nx = clamp(e.gamma / 30, -1, 1);
+        const ny = clamp(e.beta / 30, -1, 1);
+        setTargets(nx, ny);
+      }, { passive: true });
+
+      // If the page is hidden, reset to centre
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) reset();
+      });
+    })();
   </script>
-
 </body>
 </html>
